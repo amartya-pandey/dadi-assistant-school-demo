@@ -2,6 +2,12 @@
 import re
 import json
 import datetime as dt
+from zoneinfo import ZoneInfo
+
+IST = ZoneInfo("Asia/Kolkata")
+
+def now_ist():
+    return dt.datetime.now(IST)
 
 HINDI_NUM = {"एक": 1, "दो": 2, "तीन": 3, "चार": 4, "पांच": 5, "पाँच": 5, "पाच": 5,
              "छह": 6, "छः": 6, "छे": 6, "सात": 7, "आठ": 8, "नौ": 9, "दस": 10,
@@ -78,7 +84,7 @@ def offline_intent(text):
         out["intent"] = "chat"
         out["reply"] = "हम दादी साथी हईं, राउर घरेलु सहायक।"
     elif any(w in t for w in ("समय", "टाइम", "time", "केतना बज")):
-        now = dt.datetime.now()
+        now = now_ist()
         h = now.hour % 12 or 12
         m = now.minute
         out["intent"] = "chat"
@@ -86,18 +92,54 @@ def offline_intent(text):
     return out
 
 
+# def compute_due(result, now=None):
+#     """Turn {'in_minutes': n} or {'time': 'HH:MM'} into a datetime (or None)."""
+#     now = now or dt.datetime.now()
+#     try:
+#         if result.get("in_minutes"):
+#             return now + dt.timedelta(minutes=int(result["in_minutes"]))
+#         if result.get("time"):
+#             h, m = map(int, str(result["time"]).split(":")[:2])
+#             due = now.replace(hour=h, minute=m, second=0, microsecond=0)
+#             if due <= now:
+#                 due += dt.timedelta(days=1)
+#             return due
+#     except (ValueError, TypeError):
+#         pass
+#     return None
 def compute_due(result, now=None):
-    """Turn {'in_minutes': n} or {'time': 'HH:MM'} into a datetime (or None)."""
-    now = now or dt.datetime.now()
+    """Convert a reminder time into a timezone-aware IST datetime."""
+    now = now or now_ist()
+
+    # Ensure the reference time is in IST
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=IST)
+    else:
+        now = now.astimezone(IST)
+
     try:
-        if result.get("in_minutes"):
-            return now + dt.timedelta(minutes=int(result["in_minutes"]))
+        if result.get("in_minutes") is not None:
+            minutes = int(result["in_minutes"])
+            if minutes < 0:
+                return None
+            return now + dt.timedelta(minutes=minutes)
+
         if result.get("time"):
             h, m = map(int, str(result["time"]).split(":")[:2])
-            due = now.replace(hour=h, minute=m, second=0, microsecond=0)
+
+            if not (0 <= h <= 23 and 0 <= m <= 59):
+                return None
+
+            due = now.replace(
+                hour=h, minute=m, second=0, microsecond=0
+            )
+
             if due <= now:
                 due += dt.timedelta(days=1)
+
             return due
+
     except (ValueError, TypeError):
         pass
+
     return None

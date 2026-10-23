@@ -4,7 +4,12 @@ import datetime as dt
 import streamlit as st
 import speech_recognition as sr
 from gtts import gTTS
+from zoneinfo import ZoneInfo
+from logic import extract_json, offline_intent, compute_due
+IST = ZoneInfo("Asia/Kolkata")
 
+def now_ist():
+    return dt.datetime.now(IST)
 from logic import extract_json, offline_intent, compute_due
 
 st.set_page_config(page_title="Dadi Sathi - Voice Assistant", page_icon="👵", layout="centered")
@@ -90,7 +95,7 @@ def tts_bytes(text):
 def think(text):
     if groq_client:
         try:
-            system = (SYSTEM.replace("{NOW}", dt.datetime.now().strftime("%A %d %B %Y, %H:%M"))
+            system = (SYSTEM.replace("{NOW}", now_ist().strftime("%A %d %B %Y, %H:%M"))
                             .replace("{CONTACTS}", ", ".join(CONTACTS)))
             resp = groq_client.chat.completions.create(
                 model=GROQ_MODEL,
@@ -107,7 +112,7 @@ def think(text):
             pass
     elif client:
         try:
-            system = (SYSTEM.replace("{NOW}", dt.datetime.now().strftime("%A %d %B %Y, %H:%M"))
+            system = (SYSTEM.replace("{NOW}", now_ist().strftime("%A %d %B %Y, %H:%M"))
                             .replace("{CONTACTS}", ", ".join(CONTACTS)))
             msg = client.messages.create(
                 model=MODEL,
@@ -183,7 +188,7 @@ if st.session_state.action:
 if st.session_state.audio_bytes:
     st.audio(st.session_state.audio_bytes, format="audio/mp3", autoplay=True)
 
-now = dt.datetime.now()
+now = now_ist()
 for r in st.session_state.reminders:
     if not r["fired"] and r["due"] <= now:
         r["fired"] = True
