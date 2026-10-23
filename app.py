@@ -5,7 +5,7 @@ import logging
 import streamlit as st
 import speech_recognition as sr
 from gtts import gTTS
-from logic import (extract_json, offline_intent, compute_due, describe_due, now_ist)
+from logic import (extract_json, offline_intent, compute_due, describe_due, now_ist, IST)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("dadi")
@@ -196,6 +196,10 @@ if st.session_state.audio_bytes:
 def reminder_panel():
     now = now_ist()
     newly = []
+    # Repair reminders saved by older versions (naive datetimes) so comparisons don't crash.
+    for r in st.session_state.reminders:
+        if r["due"].tzinfo is None:
+            r["due"] = r["due"].replace(tzinfo=IST)
     for r in st.session_state.reminders:
         if not r["fired"] and r["due"] <= now:
             r["fired"] = True
